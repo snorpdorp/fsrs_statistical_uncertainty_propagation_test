@@ -14,11 +14,18 @@ import random
 
 DETERMINISTIC = False
 NUM_FITTED_PARAMS = 21
-N_TRIALS = 2000
-# 20 trials is probably good in actual deployment.
-# 200 trials is enough to see the gaussian curve, albeit messily
-# 2000 trials is neough to see gaussian curve cleanly
+N_TRIALS = 200
+# 200 trials is enough to see the gaussian curve, albeit very messily
+# 2000 trials is neough to see gaussian curve cleanly, albeit imperfectly
 # 20000 is statistician's dream -- human eye to differentiate from theoretical gaussian curve becomes difficult
+
+POISSON_JIGGLES = 100
+# 20--Forms a gaussian but sigma is slightly bigger... 21/20 sigma and then height lowered equivalently? I'm sure the exact formula is in a stats text
+# 40--it's clearly not a perfect gaussian match but probably good enough for deployment
+# 100 is perhaps overkill, but I cannot distinguish from perfect gaussian match within statistical fluctuations
+
+# Runtime is O(NMP) where N and M and P are N_TRIALS and POISSON_JIGGLES and the number of reviews
+# In actual deployment, after model is proven accurate, just O(MP)
 
 
 if DETERMINISTIC:
@@ -52,7 +59,7 @@ def poisson_randomization(data, n_samples):
 
 def fsrs_params_with_error(reviews) -> list[uncertainties.ufloat]:
     assert len(reviews) > NUM_FITTED_PARAMS**2  # This number is probably wrong but will probably work.
-    statistically_jiggled_datasets = poisson_randomization(reviews, n_samples=NUM_FITTED_PARAMS**2)
+    statistically_jiggled_datasets = poisson_randomization(reviews, n_samples=POISSON_JIGGLES)
     # No idea if above is enough or too many samples, but will probably work.
     # Also, no idea what shape matrix is most efficient...
     # most_accurate_mu_calculation = calculate_fsrs_params(reviews)  # uses all fitting data
@@ -74,7 +81,7 @@ def fit_fsrs_params(reviews):
 def get_reviews_somewhere():
     """Get list of reviews for testing. Ideally from experimental measurements from a single deck of a single user."""
     # Currently just toy data
-    return range(1000)
+    return list(range(5000))
 
 
 def get_some_review():
@@ -132,8 +139,8 @@ def evaluate_and_compare(real_data):
     bins = np.linspace(min(real_data + synthetic_data),
                        max(real_data + synthetic_data), 30)
 
-    plt.hist(real_data, bins=bins, alpha=0.5, density=True, label="Real Data")
-    plt.hist(synthetic_data, bins=bins, alpha=0.5, density=True, label="Synthetic Normal")
+    plt.hist(real_data, bins=bins, alpha=0.5, density=True, label="Experimental")
+    plt.hist(synthetic_data, bins=bins, alpha=0.5, density=True, label="Gaussian Sampling")
 
     x = np.linspace(bins[0], bins[-1], 300)
 
@@ -150,7 +157,7 @@ def evaluate_and_compare(real_data):
     # Ideal standard normal reference
     plt.plot(x, norm.pdf(x, 0, 1), "--", linewidth=2, label="Ideal N(0,1)")
 
-    plt.title("Histogram: Real Data vs Ideal Gaussian")
+    plt.title("Histogram: Measured data vs. Gaussian Sampling")
     plt.xlabel("Z-score")
     plt.ylabel("Density")
     plt.legend()
@@ -167,16 +174,16 @@ def evaluate_and_compare(real_data):
     theoretical = norm.ppf(np.linspace(0.001, 0.999, n))
 
     # Real observations
-    plt.scatter(theoretical, sorted_real, s=20, alpha=0.7, label="Real Data")
+    plt.scatter(theoretical, sorted_real, s=20, alpha=0.7, label="Experimental")
 
     # Synthetic reference points
-    plt.scatter(theoretical, sorted_synth, s=20, alpha=0.7, label="Synthetic Normal")
+    plt.scatter(theoretical, sorted_synth, s=20, alpha=0.7, label="Gaussian Sampling")
 
     # 1:1 perfect normal line
     lo, hi = min(min(theoretical), min(sorted_real)), max(max(theoretical), max(sorted_real))
     plt.plot([lo, hi], [lo, hi], 'r--', label="Perfect Fit Line")
 
-    plt.title("Q-Q Comparison: Real vs Synthetic Normal")
+    plt.title("Q-Q Comparison: Measured data vs. Gaussian Sampling")
     plt.xlabel("Theoretical Quantiles")
     plt.ylabel("Observed Quantiles")
     plt.legend()
@@ -188,12 +195,18 @@ def evaluate_and_compare(real_data):
 
 def main():
     reviews = get_reviews_somewhere()
-    test_reviews = reviews[-N_TRIALS:]
-    reviews = reviews[:N_TRIALS]
+    assert len(reviews) > 3
     z_scores = []
-    for i, test_review in enumerate(test_reviews):  # N_TRIALS of iterations
+    for i in range(N_TRIALS):
         print(f"Running trial {i}")
-        fitting_reviews, checking_reviews = randomly_evenly_stratify_data(reviews, 2)
+
+        # Randomly assign fitting, checking, test review
+        random.shuffle(reviews)
+        halfway_split = (len(reviews)-1)//2  # 3, 4 -> 1
+        fitting_reviews = reviews[:halfway_split]
+        checking_reviews = reviews[halfway_split:2*halfway_split]  # to either 2nd- or 3rd-to-alst
+        test_review = reviews[-1]
+
         fitted_params = fsrs_params_with_error(fitting_reviews)
         checking_params = fit_fsrs_params(checking_reviews)
 
