@@ -17,10 +17,13 @@ sparse where virtually all detectors have 0 events.
 -----------------------------
 
 Feed into the script N reviews ( > 2 * N_PARAMS^2 ).  It then runs
-N_TRIALS over the review (probably only 20 needed in deployment if
-data is actually Gaussian, 200 to see the Gaussian features, 2000+ to
-see clear Gaussian features, 20k+ for differences with Guassian to
-become nearly imperceptible to human eye on my monitor)
+N_TRIALS over the review (only 1 is necessary in deployment for end
+users if we can accurately calculate the distribution exactly, which we probably can)
+Below N_TRIALS < 20, it is hard to see Gaussian features.
+At N_TRIALS = 200, Gaussian features should be somewhat visible.
+At N_TRIALS = 2000, Gaussian features should be very clear.
+At N_TRIALS = 20k, Gaussian features should be imperceptably
+different to human eye, or close to it.
 
 For each trial, it splits the data into 2 random datasets of equal
 size, one for fitting, and one for testing.
@@ -43,10 +46,10 @@ It does this N_TRIALS times, each time calculating a Z-score,
 building up an array of calculated Z-scores for each random splitting of the data.
 
 Then, data is shown to the user showing how accurate the calculated
-Z-scores match that of a perfect Gaussian distribution.  The perect
-Gaussian distribution samples N_TRIALS datapoints so it will have
-identical statistical fluctuations (but not inherent error) to the
-test data.
+Z-scores match that of a simulated perfect Gaussian distribution. 
+The perect Gaussian distribution samples N_TRIALS datapoints so it
+will have identical statistical fluctuations (but not inherent error)
+to the test data.
 
 That is, the two distributions should look similar. And you should be
 able to turn N_TRIALS up to get clearer and clearer comparisons.
@@ -61,9 +64,9 @@ everything looks Gaussian no matter what you do.
 
 To execute (probably, not tested)
 
-git clone <repo-url>
-cd repo
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-./error_propagation.py
+    git clone <repo-url>
+    cd repo
+    python -m venv .venv
+    source .venv/bin/activate  # Windows: .venv\Scripts\activate
+    pip install -r requirements.txt
+    ./statistical_uncertainty_propagation.py
