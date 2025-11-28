@@ -8,6 +8,8 @@ import itertools as it
 import uncertainties
 import matplotlib.pyplot as plt
 from scipy.stats import norm, kstest, shapiro, probplot, chi2
+from fsrs import ReviewLog, Optimizer
+import random
 
 
 DETERMINISTIC = False
@@ -20,15 +22,19 @@ N_TRIALS = 2000
 
 
 if DETERMINISTIC:
-    np.random.seed(1729)
+    np.random.seed(1729)  # In honor of fastest method to multiply 2 numbers
+    random.seed(1729)
 
 
 def randomly_evenly_stratify_data(iterable, num_strata):
+    # It's like dealing cards, but each time you start a full-round, you
+    # randomize the order of that round.
     strata = [[] for i in range(num_strata)]
     deal_to = []
     for i in iterable:
         if not deal_to:
             deal_to = list(range(len(strata)))
+            random.shuffle(deal_to)
         strata[deal_to.pop()].append(i)
     return strata
 
@@ -81,36 +87,6 @@ def calculate_interval(review, fsrs_params):
     """Calculate the interval of a given review with the given fsrs parameters"""
     # Currently just toy data
     return sum(fsrs_params)
-
-
-def evaluate_z_scores(z_scores):
-    # Statistical tests for gaussianness and accuracy
-    ks_stat, ks_p = kstest(z_scores, 'norm')
-    shapiro_stat, shapiro_p = shapiro(z_scores)
-
-    print("=== Normality Tests ===")
-    print(f"Kolmogorov-Smirnov Test:  statistic={ks_stat:.4f},  p-value={ks_p:.4f}")
-    print(f"Shapiro-Wilk Test:       statistic={shapiro_stat:.4f},  p-value={shapiro_p:.4f}")
-
-# Plot histogram & Gaussian curve
-    plt.figure(figsize=(12, 5))
-
-    plt.subplot(1, 2, 1)
-    count, bins, _ = plt.hist(z_scores, bins=25, density=True, alpha=0.6, label="Data")
-    x = np.linspace(min(z_scores), max(z_scores), 200)
-    plt.plot(x, norm.pdf(x, np.mean(z_scores), np.std(z_scores)), linewidth=2, label="Gaussian Fit")
-    plt.title("Histogram with Gaussian Overlay")
-    plt.xlabel("Z-score")
-    plt.ylabel("Density")
-    plt.legend()
-
-# Q-Q plot
-    plt.subplot(1, 2, 2)
-    probplot(z_scores, dist="norm", plot=plt)
-    plt.title("Q-Q Plot (Normal Distribution)")
-
-    plt.tight_layout()
-    plt.show()
 
 
 def evaluate_and_compare(real_data):
@@ -212,16 +188,17 @@ def evaluate_and_compare(real_data):
 
 def main():
     reviews = get_reviews_somewhere()
-    default_test_review = get_some_review()
+    test_reviews = reviews[-N_TRIALS:]
+    reviews = reviews[:N_TRIALS]
     z_scores = []
-    for i in range(N_TRIALS):
+    for i, test_review in enumerate(test_reviews):  # N_TRIALS of iterations
         print(f"Running trial {i}")
         fitting_reviews, checking_reviews = randomly_evenly_stratify_data(reviews, 2)
         fitted_params = fsrs_params_with_error(fitting_reviews)
         checking_params = fit_fsrs_params(checking_reviews)
 
-        fitted_interval = calculate_interval(default_test_review, fitted_params)
-        checking_interval = calculate_interval(default_test_review, checking_params)
+        fitted_interval = calculate_interval(test_review, fitted_params)
+        checking_interval = calculate_interval(test_review, checking_params)
 
         z_scores.append((checking_interval - fitted_interval.n)/fitted_interval.s)
 
