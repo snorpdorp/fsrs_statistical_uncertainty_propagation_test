@@ -63,30 +63,30 @@ def fsrs_params_with_error(reviews) -> list[uncertainties.ufloat]:
 
 def fit_fsrs_params(reviews):
     """Calculate fitted FSRS parameters from reviews"""
-    # Currently just test data
+    # Currently just toy data
     return np.random.normal(loc=0.0, scale=1.0, size=NUM_FITTED_PARAMS)
 
 
 def get_reviews_somewhere():
     """Get list of reviews for testing. Ideally from experimental measurements from a single deck of a single user."""
-    # Currently just test data
+    # Currently just toy data
     return range(1000)
 
 
 def get_some_review():
     """Some test review. Can be randomized or anything"""
-    # Currenty just test ddata
+    # Currenty just toy ddata
     return 8
 
 
 def calculate_interval(review, fsrs_params):
     """Calculate the interval of a given review with the given fsrs parameters"""
-    # Currently just test data
+    # Currently just toy data
     return sum(fsrs_params)
 
 
 def evaluate_z_scores(z_scores):
-    # Statistical tests
+    # Statistical tests for gaussianness and accuracy
     ks_stat, ks_p = kstest(z_scores, 'norm')
     shapiro_stat, shapiro_p = shapiro(z_scores)
 
@@ -227,11 +227,6 @@ def main():
 
         z_scores.append((checking_interval - fitted_interval.n)/fitted_interval.s)
 
-    # First, show user what perfect gaussian looks like with this dataset
-    # print("Displaying perfect Gaussian distribution with same datasize")
-    # evaluate_z_scores(np.random.normal(loc=0, scale=1, size=len(z_scores)))
-    # print("Displaying how our estimation from one dataset compares to distinct dataset")
-    # evaluate_z_scores(z_scores)
     evaluate_and_compare(z_scores)
 
 
