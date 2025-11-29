@@ -14,39 +14,17 @@ import random
 
 CONSTANT_SEED = False
 NUM_FITTED_PARAMS = 21
-N_TRIALS = 20000
+N_TRIALS = 5000
 # 200 trials is enough to see the gaussian curve, albeit very messily
 # 2000 trials is neough to see gaussian curve cleanly, albeit imperfectly
 # 20000 is statistician's dream -- human eye to differentiate from theoretical gaussian curve becomes difficult
 
-POISSON_JIGGLES = 10
+JIGGLES = 4
 
-# Something is wrong in the Bessel correction... not sure what.
-# It's *probably* becuase Poisson is not 100% correct due to low
-# statistics in a given bin, and a Binomial would be correct.
+# DISTRIBUTION = "Poisson"
+DISTRIBUTION = "Binomial"
 
-# At any rate, I found that a modified Bessel correcetion of
-# [N/(N-1)]^2 (as opposed to standard with no square) does fairly
-# accurately calculate statistical uncertainty for JIGGLES >= 4.
-
-# This is... a kind of statistics abuse, but it works on the data I tested.
-
-# Hoever even that does not work below JIGGLES < 4
-# There does seem to be a very slight (<2%) bias, and it does
-# approach 0 as jiggles approaches infinity.
-# 20 is probably good enough, although even 4 is probably good enough.
-# Checking using Toy Data with known distribution. Below should be
-# exactly 1. If it's not, then statistical prediction is off by that amount.
-# POISSON_JIGGLES: prediction of stdev divided by actual stdev (known via simulation)
-# 3: σ estimate: 1.5084 (95% CI: 1.4203 → 1.6082)  # This one's always messed up. Not sure why...
-# 4: σ estimate: 1.0445 (95% CI: 1.0344 → 1.0549)  # slightly underestimates
-# 5: σ estimate: 0.9830 (95% CI: 0.9735 → 0.9928)
-# 10: σ estimate: 0.9764 (95% CI: 0.9670 → 0.9861)
-# 100: σ estimate: 0.9948 (95% CI: 0.9851 → 1.0046)
-
-
-
-# Runtime is O(NMP) where N and M and P are N_TRIALS and POISSON_JIGGLES and the number of reviews
+# Runtime is O(NMP) where N and M and P are N_TRIALS and BINOM_JIGGLES and the number of reviews
 # In actual deployment, after model is proven accurate, just O(MP)
 
 
@@ -55,34 +33,26 @@ if CONSTANT_SEED:
     random.seed(1729)
 
 
-def randomly_evenly_stratify_data(iterable, num_strata):
-    # It's like dealing cards, but each time you start a full-round, you
-    # randomize the order of that round.
-    strata = [[] for i in range(num_strata)]
-    deal_to = []
-    for i in iterable:
-        if not deal_to:
-            deal_to = list(range(len(strata)))
-            random.shuffle(deal_to)
-        strata[deal_to.pop()].append(i)
-    return strata
-
-
-def poisson_randomization(data, n_samples):
+def jiggle_reviews(data, n_jiggles):
     # Assumes a sparse matrix of radiation detectors each with either zero or a single detection event
     # Might be beneficial to bin the dectors and then have integerial number of detections in each bin...
     # Will try that if first approach fails and/or binning is easily done.
     # For starters, each detector in its own bin
-    for i in range(n_samples):
-        poisson_values = np.random.poisson(lam=1.0, size=len(data))
-        yield list(it.chain.from_iterable((datum, ) * num_detections for datum, num_detections in zip(data, poisson_values)))
+    for i in range(n_jiggles):
+        if DISTRIBUTION == "Binomial":  # Faster, probably slightly more accurate
+            values = np.random.binomial(n=1, p=0.5, size=len(data)) * 2  # * 2 does make variance math accurate but probably unncessary
+        elif DISTRIBUTION == "Poisson":  # Easier to do math with, Binom converges to Poisson at high number of measurements
+            values = np.random.poisson(lam=1, size=len(data))
+        else:
+            raise ValueError(f"DISTRIBUTION must be 'Binomial' or 'Poisson', not {DISTRIBUTION}")
+        yield list(it.chain.from_iterable((datum, ) * num_detections for datum, num_detections in zip(data, values)))
         # yielded list is approx same length as len(data), but with various events duplicated and/or omitted, randomly
 
 
 def fsrs_params_with_error(reviews) -> list[uncertainties.ufloat]:
     assert len(reviews) > NUM_FITTED_PARAMS**2  # This number is probably too big, but we avoid errors!
-    assert POISSON_JIGGLES >= 4  # Something wrong with Bessel correction... inaccurate below 4 jiggles
-    statistically_jiggled_datasets = poisson_randomization(reviews, n_samples=POISSON_JIGGLES)
+    assert JIGGLES >= 2  #  Can't propagate statistical variation from 1 run, also bessel correction div-by-zero
+    statistically_jiggled_datasets = jiggle_reviews(reviews, n_jiggles=JIGGLES)
     # No idea if above is enough or too many samples, but will probably work.
     # Also, no idea what shape matrix is most efficient...
     # most_accurate_mu_calculation = calculate_fsrs_params(reviews)  # uses all fitting data
@@ -92,7 +62,7 @@ def fsrs_params_with_error(reviews) -> list[uncertainties.ufloat]:
     means = np.mean(jiggled_parameters, axis=0)
     cov = np.cov(jiggled_parameters, rowvar=False)
     # Bessel correction for sampling bias
-    cov *= ((POISSON_JIGGLES / (POISSON_JIGGLES - 1))) ** 4  # Why is it squared a second time? I don't know but it makes stats work.
+    cov *= ((JIGGLES / (JIGGLES - 1))) ** 4
     params_with_uncertainty = uncertainties.correlated_values(means, cov)
     return params_with_uncertainty
 

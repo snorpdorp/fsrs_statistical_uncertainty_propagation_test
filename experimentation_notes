@@ -1,0 +1,36 @@
+Using git commit 919cf0cf73021b766fedb5fe2efa4802789b6a34
+
+We found the following data for what should be finding exact and
+precise gaussian distributions with mu=0, sigma=1
+
+Something is wrong in the Bessel correction... not sure what.
+It's *probably* becuase Poisson is not 100% correct due to low
+statistics in a given bin, and a Binomial would be correct.
+
+At any rate, I found that a modified Bessel correcetion of
+[N/(N-1)]^2 (as opposed to standard with no square) does fairly
+accurately calculate statistical uncertainty for JIGGLES >= 4.
+
+This is... a kind of statistics abuse, but it works on the data I
+tested.
+
+Hoever even that does not work below JIGGLES < 4
+There does seem to be a very slight (<2%) bias, and it does
+approach 0 as jiggles approaches infinity.
+20 is probably good enough, although even 4 is probably good enough.
+Checking using Toy Data with known distribution. Below should be
+exactly 1. If it's not, then statistical prediction is off by that amount.
+POISSON_JIGGLES: prediction of stdev divided by actual stdev (known via simulation)
+3: σ estimate: 1.5084 (95% CI: 1.4203 → 1.6082)  # Extreme underestimation
+4: σ estimate: 1.0445 (95% CI: 1.0344 → 1.0549)  # slightly underestimates
+5: σ estimate: 0.9830 (95% CI: 0.9735 → 0.9928)  # slightly overestimates
+10: σ estimate: 0.9764 (95% CI: 0.9670 → 0.9861)  # slightly overestimates
+100: σ estimate: 0.9948 (95% CI: 0.9851 → 1.0046)  # imperceptibly different to exact
+
+------
+
+Using next git commit
+Ran many simulations with Binomial distribution instead of Poisson.
+However, data was equally skewed and not as would be predicted by a Binomial distribution.
+I tink it is because in the jiggling state, repeated reviews give different results due to random nature of the toy data.
+Best to switch over to real data and see how that works.
