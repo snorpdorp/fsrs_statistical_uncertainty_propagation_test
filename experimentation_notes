@@ -29,7 +29,7 @@ POISSON_JIGGLES: prediction of stdev divided by actual stdev (known via simulati
 
 ------
 
-Using next git commit
+Using next git commit c71ba8f78c4cf58522b060ad135b4549a8afe575
 Ran many simulations with Binomial distribution instead of Poisson.
 However, data was equally skewed and not as would be predicted by a Binomial distribution.
 I tink it is because in the jiggling state, repeated reviews give different results due to random nature of the toy data.
