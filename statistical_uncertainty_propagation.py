@@ -13,6 +13,7 @@ import random
 import time
 from math import inf
 import pandas as pd
+import json
 
 
 CONSTANT_SEED = False
@@ -23,8 +24,8 @@ N_MEASUREMENTS = 1000000
 # 20000 is statistician's dream -- human eye to differentiate from theoretical gaussian curve becomes difficult
 
 JIGGLES = 4
-# DISTRIBUTION = "Poisson"
-DISTRIBUTION = "Binomial"
+# DISTRIBUTION = "poisson"
+DISTRIBUTION = "binomial"
 
 # Runtime is O(NM) where N and M N_MEASUREMENTS and M is JIGGLES
 # In actual deployment, after model is proven accurate, just O(M), as
@@ -41,19 +42,21 @@ def jiggle_reviews(reviews):
     # Might be beneficial to bin the dectors and then have integerial number of detections in each bin...
     # Will try that if first approach fails and/or binning is easily done.
     # For starters, each detection is in its own bin
-    if DISTRIBUTION == "Binomial":  # Faster, probably slightly more accurate
+    if DISTRIBUTION == "binomial":  # Faster, probably slightly more accurate
         values = np.random.binomial(n=1, p=0.5, size=len(reviews)) * 2  # * 2 does make variance math accurate but probably unncessary
-    elif DISTRIBUTION == "Poisson":  # Easier to do math with, Binom converges to Poisson at high number of measurements
+    elif DISTRIBUTION == "poisson":  # Easier to do math with, Binom converges to poisson at high number of measurements
         values = np.random.poisson(lam=1, size=len(reviews))
     else:
-        raise ValueError(f"DISTRIBUTION must be 'Binomial' or 'Poisson', not {DISTRIBUTION}")
+        raise ValueError(f"DISTRIBUTION must be 'binomial' or 'poisson', not {DISTRIBUTION}")
     return list(it.chain.from_iterable((datum, ) * num_detections for datum, num_detections in zip(reviews, values)))
     # yielded list is approx same length as len(reviews), but with various events duplicated and/or omitted, randomly
 
 
 def fit_fsrs_params(reviews):
     """Actually returns a Scheduler object with fitted params"""
-    optimizer = Optimizer(reviews)
+    cards, revlogs = zip(*reviews)
+    print(revlogs)
+    optimizer = Optimizer(revlogs)
     params = optimizer.compute_optimal_parameters()
     scheduler = Scheduler(optimal_parameters, enable_fuzzing=False)
     return scheduler
@@ -61,10 +64,14 @@ def fit_fsrs_params(reviews):
 
 def get_reviews():
     """Get list of reviews for testing. Ideally from experimental measurements from a single deck of a single user."""
+    # Load the Parquet files
     revlogs = pd.read_parquet("user_data/revlogs/user_id=1/data.parquet")
     cards = pd.read_parquet("user_data/cards/user_id=1/data.parquet")
-    # Do something, return card/reviewlog tuples
-    return np.random.normal(loc=0.0, scale=1.0, size=5000)
+
+    print(revlogs.head(500))  # Check the first few rows
+    print(cards.head(500))  # Check the first few rows
+
+    return reviews
 
 
 def calculate_intervals(reviews, scheduler):
