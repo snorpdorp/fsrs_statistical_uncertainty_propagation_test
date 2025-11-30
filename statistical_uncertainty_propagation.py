@@ -5,15 +5,13 @@
 
 import numpy as np
 import itertools as it
-import uncertainties
 import matplotlib.pyplot as plt
-from scipy.stats import norm, kstest, shapiro, probplot, chi2
-from fsrs import ReviewLog, Optimizer, Scheduler
+from scipy.stats import norm, kstest, shapiro, chi2
+from fsrs import Optimizer, Scheduler
 import random
 import time
 from math import inf
 import pandas as pd
-import json
 
 
 CONSTANT_SEED = False
@@ -58,7 +56,7 @@ def fit_fsrs_params(reviews):
     print(revlogs)
     optimizer = Optimizer(revlogs)
     params = optimizer.compute_optimal_parameters()
-    scheduler = Scheduler(optimal_parameters, enable_fuzzing=False)
+    scheduler = Scheduler(params, enable_fuzzing=False)
     return scheduler
 
 
@@ -71,7 +69,7 @@ def get_reviews():
     print(revlogs.head(500))  # Check the first few rows
     print(cards.head(500))  # Check the first few rows
 
-    return reviews
+    return None
 
 
 def calculate_intervals(reviews, scheduler):
@@ -213,8 +211,8 @@ def main():
         jiggled_schedulers = [fit_fsrs_params(reviews) for reviews in jiggled_reviews]
         checking_scheduler = fit_fsrs_params(checking_reviews)
 
-        jiggled_intervals = [calculate_intervals(test_reviews, params) for params in  jiggled_params]
-        checking_intervals = calculate_intervals(test_reviews, checking_params)
+        jiggled_intervals = [calculate_intervals(test_reviews, params) for params in jiggled_schedulers]
+        checking_intervals = calculate_intervals(test_reviews, checking_scheduler)
 
         fitted_intervals_n = np.mean(jiggled_intervals, axis=0)
         fitted_intervals_s = np.std(jiggled_intervals, axis=0, ddof=1)
